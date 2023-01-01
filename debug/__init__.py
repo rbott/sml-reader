@@ -39,5 +39,7 @@ def print_obis_data(interval):
                             print(" {}: {}{}".format(data["description"], data["value"], data["unit"]))
                     print()
                 else:
-                    logging.debug("Could not print any OBIS data - none found in the last SML message")
+                    logging.warn("Could not print any OBIS data - none found in the last SML message")
+            else:
+                logging.warn("Could not print any OBIS data - no SML data received (yet)")
         time.sleep(interval)

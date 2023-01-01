@@ -7,7 +7,7 @@ This software reads and decodes SML / OBIS data from a serial device. It support
 - provide information through an HTTP API
   - dump the latest OBIS datapoints in JSON format
   - provide Prometheus scraping endpoint for the latest OBIS datapoints
-- publish OBIS datapoints via MQTT [not implemented yet]
+- publish OBIS datapoints via MQTT
 
 ### Table of Contents <!-- omit in toc -->
 
@@ -17,6 +17,7 @@ This software reads and decodes SML / OBIS data from a serial device. It support
 - [HTTP API Routes](#http-api-routes)
   - [GET /obis-dump](#get-obis-dump)
   - [GET /metrics](#get-metrics)
+- [MQTT publishing](#mqtt-publishing)
 - [Getting sml-reader up and running](#getting-sml-reader-up-and-running)
   - [Example System Unit File](#example-system-unit-file)
 - [Resources](#resources)
@@ -25,6 +26,7 @@ This software reads and decodes SML / OBIS data from a serial device. It support
 
 - Python 3.7 or newer
 - flask 1.0.2 or newer
+- paho-mqtt 1.4.0 or newer
 
 ## Tested Devices
 
@@ -73,6 +75,35 @@ obis_energy_in_no_tariff{manufacturer="ACME",serial="12345-6789",serverid="aa-bb
 
 It will throw an HTTP 500 if no OBIS datapoints have been received (yet).
 
+## MQTT publishing
+
+`sml-reader` will construct the topic names from the data received via SML, using the manufacturer, serial and server-id:
+
+```
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_in_no_tariff 12345.0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_in_tariff_1 12345.0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_in_tariff_2 0.0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_out_no_tariff 0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_out_tariff_1 0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_out_tariff_1 0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_current 140.05
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_total 0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_total_l1 0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_total_l2 0
+sml/ACME/12345-6789/aa-bb-cc-dd-ee-ff-11-22/energy_total_l3 0
+```
+
+If either manufacturer, serial or serverid are unknown (e.g. not transmitted by the meter) they will be replaced by `unknown_manufacturer`, `unknown_serial` or `unknown_serverid`. You can check for data using the mosquitto client suite using the `+` or `#` wildcards:
+
+```shell
+# dump data from all topics
+mosquitto_sub -h 127.0.0.1 -v -t "#"
+# dump "energy_total" data from any manufacturer/serial/server-id
+mosquitto_sub -h 127.0.0.1 -v -t "sml/+/+/+/energy_total"
+# dump all topics from ACME meters
+mosquitto_sub -h 127.0.0.1 -v -t "sml/ACME/+/+/+"
+```
+
 ## Getting sml-reader up and running
 
 By default, `sml-reader` will use `/dev/ttyUSB0` and a baudrate of 9600. You can change that with the `--device` and `--baudrate` parameters. If you have multiple USB serial adapters connected, I strongly advise you to use the unique representation of your device in `/dev/serial/by-id/` instead of `/dev/ttyUSBX` as the latter might not be consistent across reboots. `sml-reader` does **not** require root privileges to run! The serial devices usually belong to `root:dialout`, hence you might need to add yourself to the `dialout` group.
@@ -82,6 +113,8 @@ The HTTP API will bind to `127.0.0.1` on port `5000`. Use the `--api-bind-ip` an
 If you want to get a quick glance at any received SML data structures, use `--debug` (to get the full debug/parsing output) or `--dump-file [path]` to get a dump of the latest SML structure received at a regular interval into the file specified with `[path]` (defaults to an interval 10 seconds).
 
 If you want to get a quick glance at OBIS datapoints, you can use `--dump-console` (together with `--dump-console-interval`) to receive periodic OBIS dumps on the console.
+
+To enable MQTT publishing you need to provide `sml-reader` with a hostname or IP address to connect to using `--mqtt-host [host]`. You can optionally override the MQTT default port (1883) using `--mqtt-port` and specify the interval in which OBIS data should be published using `--mqtt-interval`.
 
 Whenever your meter emits an SML message, `sml-reader` should print the following to STDOUT:
 

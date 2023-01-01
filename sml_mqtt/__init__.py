@@ -12,7 +12,7 @@ def connect(host, port):
         if rc == 0:
             logging.info("Connected to MQTT broker")
         else:
-            logging.warn("Failed to connect to MQTT broker")
+            logging.warning("Failed to connect to MQTT broker")
     logging.info("Connecting to {}:{}".format(host, port))
     client = mqtt.Client("sml-reader")
     client.on_connect = on_connect
@@ -47,7 +47,7 @@ def start_mqtt(host, port, interval):
                             logging.debug("{}: {}".format(topic, msg))
                             client.publish(topic, msg)
                 else:
-                    logging.warn("Could not publish any OBIS data - none found in the last SML message")
+                    logging.warning("Could not publish any OBIS data - none found in the last SML message")
             else:
-                logging.warn("Could not publish any OBIS data - no SML data received (yet)")
+                logging.warning("Could not publish any OBIS data - no SML data received (yet)")
         time.sleep(interval)

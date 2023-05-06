@@ -143,7 +143,7 @@ CODES = {
     CODE_ENERGY_OUT_TARIFF_2: {
         "bytes": b"\x01\x00\x02\x08\x02\xFF",
         "description": "Zaehlwerk neg. Wirkenergie (Einspeisung), Tarif 2",
-        "internal_name": "energy_out_tariff_1",
+        "internal_name": "energy_out_tariff_2",
         "type": TYPE_COUNTER,
     },
     CODE_ENERGY_CURRENT: {

@@ -2,6 +2,7 @@
 import logging
 import serial
 import threading
+import select
 
 import obis
 import shared_sml_data
@@ -309,17 +310,24 @@ def parse_sml_bytestream(msg, footer):
     if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
         shared_sml_data.SML_RAW_DATA.GetRoot().RecursiveLog()
 
-
 def read_serial_data(device, baudrate):
-    sel = serial.Serial(port=device, baudrate=baudrate, timeout=2, rtscts=False, dsrdtr=False)
+    sel = serial.Serial(port=device, baudrate=baudrate, timeout=0, rtscts=False, dsrdtr=False)
     buffer = b''
     start_seq_complete = False
     received_msg = False
+
     while True:
-        data = sel.read(1)
-        if data is None:
+        rlist, _, _ = select.select([sel], [], [], 1.0)
+        if sel not in rlist:
+            time.sleep(0.01)
             continue
-        buffer = buffer + data
+
+        data = sel.read(1)
+        if not data:
+            continue
+
+        buffer += data
+
         if buffer.find(START_SEQ) > -1 and not start_seq_complete:
             logging.info("Detected SML Start Sequence")
             start_seq_complete = True
@@ -328,13 +336,15 @@ def read_serial_data(device, baudrate):
                 logging.debug("Found extra data ahead of Start Sequence: %s", utils.hexlify(buffer[:-len(START_SEQ)]))
             buffer = b''
             continue
+
         if start_seq_complete and buffer.endswith(ESCAPE_SEQ):
-            sml_msg = buffer[0:-len(ESCAPE_SEQ)] 
+            sml_msg = buffer[0:-len(ESCAPE_SEQ)]
             logging.debug("Detected SML Message Body: %s", utils.hexlify(sml_msg))
             buffer = b''
             start_seq_complete = False
             received_msg = True
             continue
+
         if received_msg and len(buffer) >= 4 and buffer.find(b"\x1a") == 0:
             sml_footer = buffer
             logging.debug("Detected SML Message Footer: %s", utils.hexlify(sml_footer))
